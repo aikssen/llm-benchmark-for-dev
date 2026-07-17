@@ -28,13 +28,13 @@ Individual reports live alongside this file: `RESULTS/<participant>.md`.
 | 13 | **Qwen3.7-Max** | **161** | Lean Hire | OpenCode | ✅ | ✅ | ❌ race* |
 | 14 | **MiMo-V2.5-Pro** | **157** | Lean No Hire | OpenCode | ✅ | ✅ | ❌ race |
 | 15 | **Kimi-K2.7-Code** | **153** | Lean No Hire | OpenCode | ✅ | ✅ | ⚠️ deadlock** |
-| 16 | **Gemini3-Pro** | **15** | No Hire | OpenCode | ❌ | — | — |
 
 \* Qwen: shipped suite passes `-race` but never exercises the concurrent path; a targeted probe reproduces the race.
 \** Kimi-K2.7: passes `-race`, but the concurrent-burst path deterministically **deadlocks** (workers block on sub-tasks submitted to the same bounded pool); not caught by the suite.
 
-> **Scope.** Models were added to the benchmark as they were released — `Grok-4.5`, `Kimi-K3`, `GPT-5.6-Sol`/`Terra` and `Gemini-3.5-Flash` joined later rounds. Every submission was evaluated the same way against the same rubric.
-> `Gemini-3.5-Flash` and `Gemini3-Pro` are distinct models, as are `Kimi-K3` and `Kimi-K2.7-Code`.
+> **Scope.** Models were added to the benchmark as they were released — `Grok-4.5`, `Kimi-K3`, `GPT-5.6-Sol`/`Terra` and `Gemini-3.5-Flash` joined later rounds. Every submission was evaluated the same way against the same rubric. `Kimi-K3` and `Kimi-K2.7-Code` are distinct models.
+>
+> † An earlier run, `Gemini3-Pro`, aborted mid-generation and never produced a runnable service; it was superseded by `Gemini-3.5-Flash` and is no longer included in the results.
 
 ---
 
@@ -59,7 +59,6 @@ Max: Corr 15 · Arch 30 · DI 25 · Idiom 30 · Conc 30 · Err 20 · Qual 20 · 
 | Qwen3.7-Max | 10 | 22 | 18 | 21 | 12 | 13 | 13 | 13 | 15 | 9 | 8 | 19 | 173 | −12 | **161** |
 | MiMo-V2.5-Pro | 9 | 22 | 18 | 20 | 11 | 13 | 15 | 12 | 15 | 12 | 8 | 20 | 175 | −18 | **157** |
 | Kimi-K2.7-Code | 7 | 20 | 18 | 17 | 7 | 14 | 13 | 15 | 15 | 12 | 8 | 17 | 163 | −10 | **153** |
-| Gemini3-Pro | 0 | 3 | 1 | 4 | 0 | 0 | 3 | 0 | 2 | 0 | 0 | 2 | 15 | 0 | **15** |
 
 ### Critical penalties applied
 - **GPT-5.6-Sol** −5: ignored terminal `SaveDelivery` errors in worker path
@@ -91,8 +90,6 @@ Max: Corr 15 · Arch 30 · DI 25 · Idiom 30 · Conc 30 · Err 20 · Qual 20 · 
 
 **Bottom — Lean No Hire (153–157).** MiMo-V2.5-Pro (data race + unbounded goroutine fan-out + broken Dockerfile) and Kimi-K2.7-Code (deterministic worker-pool **deadlock** on the burst path — the one thing the assessment centers on).
 
-**Failed — No Hire (15).** Gemini3-Pro: generation aborted; only `go.mod` + one domain file, no runnable service.
-
 ---
 
 ## Cross-cutting observations
@@ -103,6 +100,6 @@ Max: Corr 15 · Arch 30 · DI 25 · Idiom 30 · Conc 30 · Err 20 · Qual 20 · 
 - **Swallowed store-write errors were near-universal among the async designs — with one exception.** GPT-5.6-Sol, GPT-5.6-Terra, Gemini-3.5-Flash, GPT-5.5, MiniMax, Grok-4.5 and GLM-5.2 all discard at least one delivery-status write in the worker path (Grok-4.5 discards all 12 transitions; MiniMax all 9) — harmless against an in-memory map, but a silent data-loss bug the moment the repository interface is backed by a real database. **Kimi-K3 alone logs every failed `Upsert`**, and is the only submission to which this −5 does not apply.
 - **Atomic batch admission separated the top from the middle.** A multi-recipient request that fails to enqueue partway leaves the client unable to know what was accepted. **GPT-5.6-Sol**, **Kimi-K3** and **GPT-5.5** reserve capacity for the whole batch under a lock before enqueueing any of it, and **GLM-5.2 sidesteps the problem by design** — one notification with N recipients is one queue entry, so admission is atomic for free. The rest, including Grok-4.5 and Gemini-3.5-Flash, can accept a request partially and still report failure; MiniMax is worse still, answering `202` for work it never queued.
 - **Closing a channel other goroutines send on.** MiniMax `close()`s the job queue in `Shutdown` while a public `Enqueue` remains live, and reproduces `panic: send on closed channel`. **Kimi-K3**, **GPT-5.6-Terra** and **GPT-5.5** avoid it — the first two with the same correct pattern (a `stopped` flag under the mutex that serializes the producer, so a post-shutdown submit returns an error instead of panicking), GPT-5.5 by never closing the channel at all.
-- **Docker/verification hygiene.** Several submissions (MiMo, Qwen) pin the wrong Go version in the Dockerfile so the image can't build; four (Gemini-3.5-Flash, Kimi-K3, GLM-5.2, MiniMax) ship a compiled binary in the tree; Gemini-3.5-Flash ships unformatted test files and Grok-4.5 two unformatted **source** files. Notably, **six of the sixteen submissions have no Dockerfile at all** — and MiniMax's rewrite "fixed" its broken Dockerfile by deleting it.
+- **Docker/verification hygiene.** Several submissions (MiMo, Qwen) pin the wrong Go version in the Dockerfile so the image can't build; four (Gemini-3.5-Flash, Kimi-K3, GLM-5.2, MiniMax) ship a compiled binary in the tree; Gemini-3.5-Flash ships unformatted test files and Grok-4.5 two unformatted **source** files. Notably, **six of the fifteen submissions have no Dockerfile at all** — and MiniMax ships no Dockerfile despite the surrounding tooling.
 - **Unbounded maps — two submissions noticed.** Nearly every submission has an in-memory rate-limiter/preferences map with no eviction, a latent leak on long uptime. **Kimi-K3's limiter sweeps idle buckets** (`maybeSweep`) and **MiniMax runs a TTL sweeper** over terminal notifications. Nobody else bounds memory growth at all.
 - **Docs were consistently strong — and that made doc *accuracy* the discriminator.** Almost every real submission scored 8–10/10 with honest assumptions/trade-offs sections, so documentation quality did **not** separate the field; engineering correctness did. Where docs mattered was when they lied: Grok-4.5's `Pool.Stop` and GLM-5.2's `Queue.Close` both document a queue drain neither implements.

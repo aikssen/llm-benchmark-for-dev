@@ -1,6 +1,0 @@
-
-Gemini returns this error message: 
-gemini is way too hot right now (click to expand)
-
-Try to run Gemini 3 Flash Preview
-Error message sent: gemini is way too hot right now (click to expand) 
