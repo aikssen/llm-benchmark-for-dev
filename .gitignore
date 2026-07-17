@@ -1,0 +1,19 @@
+# macOS
+.DS_Store
+
+# Screenshots / images
+*.png
+
+# Go build output / compiled binaries
+bin/
+*.exe
+*.test
+*.out
+# Loose compiled binaries committed by some submissions
+ASSESSMENTS/Gemini-3.5-Flash/server
+
+# Claude Code local config (root and per-submission)
+.claude/
+
+# Working notes
+ideas.md

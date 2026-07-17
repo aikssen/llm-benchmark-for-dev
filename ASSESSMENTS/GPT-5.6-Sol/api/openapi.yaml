@@ -1,0 +1,226 @@
+openapi: 3.0.3
+info:
+  title: Notification Orchestrator API
+  version: 1.0.0
+paths:
+  /healthz:
+    get:
+      summary: Liveness check
+      responses:
+        '200':
+          description: Healthy
+  /readyz:
+    get:
+      summary: Readiness check
+      responses:
+        '200':
+          description: Ready
+  /v1/notifications:
+    post:
+      summary: Submit a notification
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: false
+          schema:
+            type: string
+            maxLength: 128
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitNotification'
+      responses:
+        '202':
+          description: Accepted
+          headers:
+            Location:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+        '200':
+          description: Existing idempotent request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    get:
+      summary: List notifications, newest first
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Notification page
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, pagination]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Notification'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+  /v1/notifications/{id}:
+    get:
+      summary: Get a notification
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Current notification state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+        '404':
+          $ref: '#/components/responses/NotFound'
+components:
+  schemas:
+    SubmitNotification:
+      type: object
+      required: [recipients, channel, message]
+      additionalProperties: false
+      properties:
+        recipients:
+          type: array
+          minItems: 1
+          maxItems: 100
+          uniqueItems: true
+          items:
+            type: string
+        channel:
+          type: string
+          enum: [email, sms, push]
+        message:
+          $ref: '#/components/schemas/Message'
+    Message:
+      type: object
+      required: [body]
+      additionalProperties: false
+      properties:
+        subject:
+          type: string
+        body:
+          type: string
+    Notification:
+      type: object
+      required: [id, channel, message, status, deliveries, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        channel:
+          type: string
+          enum: [email, sms, push]
+        message:
+          $ref: '#/components/schemas/Message'
+        status:
+          type: string
+          enum: [queued, processing, delivered, partially_delivered, failed, rejected]
+        deliveries:
+          type: array
+          items:
+            $ref: '#/components/schemas/Delivery'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    Delivery:
+      type: object
+      required: [recipient, status, attempts, updated_at]
+      properties:
+        recipient:
+          type: string
+        status:
+          type: string
+          enum: [queued, processing, retrying, delivered, failed, rejected]
+        attempts:
+          type: integer
+        error_code:
+          type: string
+        error:
+          type: string
+        provider_id:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+    Pagination:
+      type: object
+      required: [total, limit, offset]
+      properties:
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflict:
+      description: Idempotency key conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Notification not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unavailable:
+      description: Queue at capacity or service shutting down
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

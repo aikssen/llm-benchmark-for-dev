@@ -1,0 +1,10 @@
+# Binaries
+server
+
+# Tooling/Artifacts
+.DS_Store
+
+# Testing
+*.test
+*.out
+cover.out
