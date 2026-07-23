@@ -1,0 +1,216 @@
+openapi: 3.0.3
+info:
+  title: Notification Delivery Service API
+  description: High-performance, resilient notification orchestrator API supporting Email, SMS, and Push channels.
+  version: 1.0.0
+paths:
+  /health:
+    get:
+      summary: Health Check
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: UP
+                  timestamp:
+                    type: string
+                    example: "2026-07-21T19:00:00Z"
+                  service:
+                    type: string
+                    example: notification-service
+
+  /api/v1/notifications:
+    post:
+      summary: Submit Notification Request
+      description: Submits a notification request targeting single or multiple recipients.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitNotificationInput'
+      responses:
+        '202':
+          description: Request accepted for processing
+          headers:
+            Location:
+              schema:
+                type: string
+              description: Relative URL to poll for request status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationRequest'
+        '400':
+          description: Validation or parameter error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      summary: List Notifications
+      description: Retrieve a paginated list of previously submitted notification requests.
+      parameters:
+        - name: channel
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [email, sms, push]
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, validating, queued, processing, delivered, failed, partially_failed, invalid]
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: List of notifications
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListResult'
+
+  /api/v1/notifications/{id}:
+    get:
+      summary: Get Notification Status
+      description: Retrieve the detailed status and recipient delivery breakdown of a notification request.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Detailed notification request status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationRequest'
+        '404':
+          description: Notification request not found
+
+components:
+  schemas:
+    SubmitNotificationInput:
+      type: object
+      required:
+        - channel
+        - recipients
+        - body
+      properties:
+        channel:
+          type: string
+          enum: [email, sms, push]
+        recipients:
+          type: array
+          items:
+            type: string
+          example: ["user1@example.com", "user2@example.com"]
+        subject:
+          type: string
+          example: "Order Confirmation"
+        body:
+          type: string
+          example: "Your order #12345 has been confirmed!"
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+
+    NotificationRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        channel:
+          type: string
+        recipients:
+          type: array
+          items:
+            type: string
+        subject:
+          type: string
+        body:
+          type: string
+        status:
+          type: string
+        total_recipients:
+          type: integer
+        delivered_count:
+          type: integer
+        failed_count:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        recipient_details:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationRecipientStatus'
+
+    NotificationRecipientStatus:
+      type: object
+      properties:
+        id:
+          type: string
+        request_id:
+          type: string
+        recipient:
+          type: string
+        channel:
+          type: string
+        status:
+          type: string
+        error:
+          type: string
+        provider_used:
+          type: string
+        attempts:
+          type: integer
+
+    ListResult:
+      type: object
+      properties:
+        notifications:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationRequest'
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        status_code:
+          type: integer
