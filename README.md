@@ -5,7 +5,7 @@ Each submission scored against `benchmark.md` (12 categories, **280 pts**) follo
 
 Individual reports live alongside this file: `RESULTS/<participant>.md`.
 
-**Harness.** Each model was driven by an agent/CLI: **Claude Code** (Fable5, Sonnet5, Opus-4.8), **Codex** (GPT-5.6-Sol, GPT-5.6-Terra, GPT-5.5), **Antigravity** (Gemini-3.5-Flash), and **OpenCode** (everyone else). The harness is recorded per row below; scores reflect the submitted code, not the tool.
+**Harness.** Each model was driven by an agent/CLI: **Claude Code** (Opus5, Fable5, Sonnet5, Opus-4.8), **Codex** (GPT-5.6-Sol, GPT-5.6-Terra, GPT-5.5), **Antigravity** (Gemini-3.6-flash, Gemini-3.5-Flash), and **OpenCode** (everyone else). The harness is recorded per row below; scores reflect the submitted code, not the tool.
 
 ---
 
