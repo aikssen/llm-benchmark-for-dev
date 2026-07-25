@@ -1,0 +1,14 @@
+# Build artefacts
+/build/
+/notifier
+
+# Coverage
+*.out
+
+# Local configuration (only .env.example is committed)
+.env
+
+# Editor and OS noise
+.DS_Store
+.idea/
+.vscode/
